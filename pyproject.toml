@@ -4,8 +4,7 @@ version = "3.0.0"
 description = "Google search from python"
 authors = ["sabitm <sabitmaulanaa@gmail.com>"]
 readme = "README.md"
-license = ["BSD"]
-packages = [{ include = "google_search_py" }]
+license = "BSD-3-Clause"
 
 [tool.poetry.dependencies]
 python = "^3.10"

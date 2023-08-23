@@ -32,6 +32,7 @@ import random
 import sys
 import time
 import ssl
+from typing import Optional
 
 if sys.version_info[0] > 2:
     from http.cookiejar import LWPCookieJar
@@ -45,55 +46,62 @@ else:
 
 try:
     from bs4 import BeautifulSoup
+
     is_bs4 = True
 except ImportError:
-    from BeautifulSoup import BeautifulSoup
+    from BeautifulSoup import BeautifulSoup  # type: ignore
+
     is_bs4 = False
 
 __all__ = [
-
     # Main search function.
-    'search',
-
+    "search",
     # Shortcut for "get lucky" search.
-    'lucky',
-
+    "lucky",
     # Miscellaneous utility functions.
-    'get_random_user_agent', 'get_tbs',
+    "get_random_user_agent",
+    "get_tbs",
 ]
 
 # URL templates to make Google searches.
 url_home = "https://www.google.%(tld)s/"
-url_search = "https://www.google.%(tld)s/search?lr=lang_%(lang)s&" \
-             "q=%(query)s&btnG=Google+Search&tbs=%(tbs)s&safe=%(safe)s&" \
-             "cr=%(country)s&filter=0"
-url_next_page = "https://www.google.%(tld)s/search?lr=lang_%(lang)s&" \
-                "q=%(query)s&start=%(start)d&tbs=%(tbs)s&safe=%(safe)s&" \
-                "cr=%(country)s&filter=0"
-url_search_num = "https://www.google.%(tld)s/search?lr=lang_%(lang)s&" \
-                 "q=%(query)s&num=%(num)d&btnG=Google+Search&tbs=%(tbs)s&" \
-                 "&safe=%(safe)scr=%(country)s&filter=0"
-url_next_page_num = "https://www.google.%(tld)s/search?lr=lang_%(lang)s&" \
-                    "q=%(query)s&num=%(num)d&start=%(start)d&tbs=%(tbs)s&" \
-                    "safe=%(safe)s&cr=%(country)s&filter=0"
-url_parameters = (
-    'hl', 'q', 'num', 'btnG', 'start', 'tbs', 'safe', 'cr', 'filter')
+url_search = (
+    "https://www.google.%(tld)s/search?lr=lang_%(lang)s&"
+    "q=%(query)s&btnG=Google+Search&tbs=%(tbs)s&safe=%(safe)s&"
+    "cr=%(country)s&filter=0"
+)
+url_next_page = (
+    "https://www.google.%(tld)s/search?lr=lang_%(lang)s&"
+    "q=%(query)s&start=%(start)d&tbs=%(tbs)s&safe=%(safe)s&"
+    "cr=%(country)s&filter=0"
+)
+url_search_num = (
+    "https://www.google.%(tld)s/search?lr=lang_%(lang)s&"
+    "q=%(query)s&num=%(num)d&btnG=Google+Search&tbs=%(tbs)s&"
+    "&safe=%(safe)scr=%(country)s&filter=0"
+)
+url_next_page_num = (
+    "https://www.google.%(tld)s/search?lr=lang_%(lang)s&"
+    "q=%(query)s&num=%(num)d&start=%(start)d&tbs=%(tbs)s&"
+    "safe=%(safe)s&cr=%(country)s&filter=0"
+)
+url_parameters = ("hl", "q", "num", "btnG", "start", "tbs", "safe", "cr", "filter")
 
 # Cookie jar. Stored at the user's home folder.
 # If the cookie jar is inaccessible, the errors are ignored.
-home_folder = os.getenv('HOME')
+home_folder = os.getenv("HOME")
 if not home_folder:
-    home_folder = os.getenv('USERHOME')
+    home_folder = os.getenv("USERHOME")
     if not home_folder:
-        home_folder = '.'   # Use the current folder on error.
-cookie_jar = LWPCookieJar(os.path.join(home_folder, '.google-cookie'))
+        home_folder = "."  # Use the current folder on error.
+cookie_jar = LWPCookieJar(os.path.join(home_folder, ".google-cookie"))
 try:
     cookie_jar.load()
 except Exception:
     pass
 
 # Default user agent, unless instructed by the user to change it.
-USER_AGENT = 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0)'
+USER_AGENT = "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0)"
 
 # Load the list of valid user agents from the install folder.
 # The search order is:
@@ -103,16 +111,17 @@ USER_AGENT = 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0)'
 try:
     install_folder = os.path.abspath(os.path.split(__file__)[0])
     try:
-        user_agents_file = os.path.join(install_folder, 'user_agents.txt.gz')
+        user_agents_file = os.path.join(install_folder, "user_agents.txt.gz")
         import gzip
-        fp = gzip.open(user_agents_file, 'rb')
+
+        fp = gzip.open(user_agents_file, "rb")
         try:
             user_agents_list = [_.strip() for _ in fp.readlines()]
         finally:
             fp.close()
             del fp
     except Exception:
-        user_agents_file = os.path.join(install_folder, 'user_agents.txt')
+        user_agents_file = os.path.join(install_folder, "user_agents.txt")
         with open(user_agents_file) as fp:
             user_agents_list = [_.strip() for _ in fp.readlines()]
 except Exception:
@@ -141,9 +150,9 @@ def get_tbs(from_date, to_date):
     :rtype: str
     :return: Dates encoded in tbs format.
     """
-    from_date = from_date.strftime('%m/%d/%Y')
-    to_date = to_date.strftime('%m/%d/%Y')
-    return 'cdr:1,cd_min:%(from_date)s,cd_max:%(to_date)s' % vars()
+    from_date = from_date.strftime("%m/%d/%Y")
+    to_date = to_date.strftime("%m/%d/%Y")
+    return "cdr:1,cd_min:%(from_date)s,cd_max:%(to_date)s" % vars()
 
 
 # Request the given URL and return the response page, using the cookie jar.
@@ -168,7 +177,7 @@ def get_page(url, user_agent=None, verify_ssl=True):
     if user_agent is None:
         user_agent = USER_AGENT
     request = Request(url)
-    request.add_header('User-Agent', user_agent)
+    request.add_header("User-Agent", user_agent)
     cookie_jar.add_cookie_header(request)
     if verify_ssl:
         response = urlopen(request)
@@ -189,17 +198,16 @@ def get_page(url, user_agent=None, verify_ssl=True):
 # Returns None if the link doesn't yield a valid result.
 def filter_result(link):
     try:
-
         # Decode hidden URLs.
-        if link.startswith('/url?'):
-            o = urlparse(link, 'http')
-            link = parse_qs(o.query)['q'][0]
+        if link.startswith("/url?"):
+            o = urlparse(link, "http")
+            link = parse_qs(o.query)["q"][0]
 
         # Valid results are absolute URLs not pointing to a Google domain,
         # like images.google.com or googleusercontent.com for example.
         # TODO this could be improved!
-        o = urlparse(link, 'http')
-        if o.netloc and 'google' not in o.netloc:
+        o = urlparse(link, "http")
+        if o.netloc and "google" not in o.netloc:
             return link
 
     # On error, return None.
@@ -208,9 +216,22 @@ def filter_result(link):
 
 
 # Returns a generator that yields URLs.
-def search(query, tld='com', lang='en', tbs='0', safe='off', num=10, start=0,
-           stop=None, pause=2.0, country='', extra_params=None,
-           user_agent=None, verify_ssl=True):
+def search(
+    query,
+    tld="com",
+    lang="en",
+    tbs="0",
+    safe="off",
+    num=10,
+    num_page: Optional[int] = None,
+    start=0,
+    stop=None,
+    pause=2.0,
+    country="",
+    extra_params=None,
+    user_agent=None,
+    verify_ssl=True,
+):
     """
     Search the given query string using Google.
 
@@ -250,6 +271,9 @@ def search(query, tld='com', lang='en', tbs='0', safe='off', num=10, start=0,
     # Count the number of links yielded.
     count = 0
 
+    # Count the number of page.
+    page_count = 0
+
     # Prepare the search string.
     query = quote_plus(query)
 
@@ -265,7 +289,7 @@ def search(query, tld='com', lang='en', tbs='0', safe='off', num=10, start=0,
             raise ValueError(
                 'GET parameter "%s" is overlapping with \
                 the built-in GET parameter',
-                builtin_param
+                builtin_param,
             )
 
     # Grab the cookie from the home page.
@@ -285,7 +309,6 @@ def search(query, tld='com', lang='en', tbs='0', safe='off', num=10, start=0,
 
     # Loop until we reach the maximum result, if any (otherwise, loop forever).
     while not stop or count < stop:
-
         # Remember last count to detect the end of results.
         last_count = count
 
@@ -295,7 +318,7 @@ def search(query, tld='com', lang='en', tbs='0', safe='off', num=10, start=0,
         for k, v in extra_params.items():
             k = quote_plus(k)
             v = quote_plus(v)
-            url = url + ('&%s=%s' % (k, v))
+            url = url + ("&%s=%s" % (k, v))
 
         # Sleep between requests.
         # Keeps Google from banning you for making too many requests.
@@ -306,26 +329,25 @@ def search(query, tld='com', lang='en', tbs='0', safe='off', num=10, start=0,
 
         # Parse the response and get every anchored URL.
         if is_bs4:
-            soup = BeautifulSoup(html, 'html.parser')
+            soup = BeautifulSoup(html, "html.parser")
         else:
             soup = BeautifulSoup(html)
         try:
-            anchors = soup.find(id='search').findAll('a')
+            anchors = soup.find(id="search").findAll("a")  # type: ignore
             # Sometimes (depending on the User-agent) there is
             # no id "search" in html response...
         except AttributeError:
             # Remove links of the top bar.
-            gbar = soup.find(id='gbar')
+            gbar = soup.find(id="gbar")
             if gbar:
                 gbar.clear()
-            anchors = soup.findAll('a')
+            anchors = soup.findAll("a")
 
         # Process every anchored URL.
         for a in anchors:
-
             # Get the URL from the anchor tag.
             try:
-                link = a['href']
+                link = a["href"]
             except KeyError:
                 continue
 
@@ -349,9 +371,16 @@ def search(query, tld='com', lang='en', tbs='0', safe='off', num=10, start=0,
             if stop and count >= stop:
                 return
 
+        # Increase the page count
+        page_count += 1
+
         # End if there are no more results.
-        # XXX TODO review this logic, not sure if this is still true!
+        # TODO: review this logic, not sure if this is still true!
         if last_count == count:
+            break
+
+        # End if current page count is greater or equal than num page
+        if num_page and page_count >= num_page:
             break
 
         # Prepare the URL for the next request.

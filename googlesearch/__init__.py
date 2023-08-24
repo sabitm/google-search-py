@@ -358,8 +358,11 @@ def search(
             if not href:
                 continue
 
+            # Get the title of this result item
+            title = link.text.strip()
+
             # Yield the result.
-            yield {"title": link.text, "url": href, "description": descj}
+            yield {"title": title, "url": href, "description": descj}
 
             # Increase the results counter.
             # If we reached the limit, stop.

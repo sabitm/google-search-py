@@ -29,20 +29,21 @@
 
 import os
 import random
+import ssl
 import sys
 import time
-import ssl
-from typing import Optional
+from typing import Any, Generator, Optional
 
 if sys.version_info[0] > 2:
     from http.cookiejar import LWPCookieJar
+    from urllib.parse import parse_qs, quote_plus, urlparse
     from urllib.request import Request, urlopen
-    from urllib.parse import quote_plus, urlparse, parse_qs
 else:
-    from cookielib import LWPCookieJar
     from urllib import quote_plus
+
+    from cookielib import LWPCookieJar
     from urllib2 import Request, urlopen
-    from urlparse import urlparse, parse_qs
+    from urlparse import parse_qs, urlparse
 
 try:
     from bs4 import BeautifulSoup
@@ -126,6 +127,11 @@ try:
             user_agents_list = [_.strip() for _ in fp.readlines()]
 except Exception:
     user_agents_list = [USER_AGENT]
+
+
+def __write_to_file(path: str, content: str):
+    with open(path, "w") as f:
+        f.write(content)
 
 
 # Get a random user agent.
@@ -231,7 +237,7 @@ def search(
     extra_params=None,
     user_agent=None,
     verify_ssl=True,
-):
+) -> Generator[dict[str, str], Any, None]:
     """
     Search the given query string using Google.
 
@@ -266,7 +272,6 @@ def search(
     """
     # Set of hashes for the results found.
     # This is used to avoid repeated results.
-    hashes = set()
 
     # Count the number of links yielded.
     count = 0
@@ -327,43 +332,34 @@ def search(
         # Request the Google Search results page.
         html = get_page(url, user_agent, verify_ssl)
 
-        # Parse the response and get every anchored URL.
+        # Get the BeautifulSoup object
         if is_bs4:
             soup = BeautifulSoup(html, "html.parser")
         else:
             soup = BeautifulSoup(html)
-        try:
-            anchors = soup.find(id="search").findAll("a")  # type: ignore
-            # Sometimes (depending on the User-agent) there is
-            # no id "search" in html response...
-        except AttributeError:
-            # Remove links of the top bar.
-            gbar = soup.find(id="gbar")
-            if gbar:
-                gbar.clear()
-            anchors = soup.findAll("a")
 
-        # Process every anchored URL.
-        for a in anchors:
-            # Get the URL from the anchor tag.
-            try:
-                link = a["href"]
-            except KeyError:
-                continue
+        # Container div for result's link and description
+        container_selector = "div.ezO2md > div"
+        conts = soup.select(container_selector)
 
-            # Filter invalid links and links pointing to Google itself.
-            link = filter_result(link)
+        # Iterate over every result item container
+        for cont in conts:
+            # Get the description of this result item
+            desc_selector = "span.qXLe6d.FrIlee > span.fYyStc:not([class*='YVIcad'])"
+            descs = cont.select(desc_selector)
+            descj = " ".join([d.text for d in descs]).strip()
+
+            # Get the link of this result item
+            link_selector = "div > a.fuLhoc.ZWRArf"
+            link = cont.select_one(link_selector)
             if not link:
                 continue
-
-            # Discard repeated results.
-            h = hash(link)
-            if h in hashes:
+            href = filter_result(link["href"])
+            if not href:
                 continue
-            hashes.add(h)
 
             # Yield the result.
-            yield link
+            yield {"title": link.text, "url": href, "description": descj}
 
             # Increase the results counter.
             # If we reached the limit, stop.

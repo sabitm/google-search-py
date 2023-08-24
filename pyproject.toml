@@ -5,6 +5,7 @@ description = "Google search from python"
 authors = ["sabitm <sabitmaulanaa@gmail.com>"]
 readme = "README.md"
 license = "BSD-3-Clause"
+packages = [{ include = "googlesearch" }, { include = "googlesearch/**/*.py" }]
 
 [tool.poetry.dependencies]
 python = "^3.10"

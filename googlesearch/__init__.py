@@ -163,7 +163,7 @@ def get_tbs(from_date, to_date):
 
 # Request the given URL and return the response page, using the cookie jar.
 # If the cookie jar is inaccessible, the errors are ignored.
-def get_page(url, user_agent=None, verify_ssl=True):
+def get_page(url, user_agent=None, verify_ssl=True, skip_cookie=False):
     """
     Request the given URL and return the response page, using the cookie jar.
 
@@ -172,6 +172,8 @@ def get_page(url, user_agent=None, verify_ssl=True):
         Use None for the default.
     :param bool verify_ssl: Verify the SSL certificate to prevent
         traffic interception attacks. Defaults to True.
+    :param bool skip_cookie: Skip cookie load and save, useful
+        for preventing 429 error when using proxies
 
     :rtype: str
     :return: Web page retrieved for the given URL.
@@ -184,19 +186,22 @@ def get_page(url, user_agent=None, verify_ssl=True):
         user_agent = USER_AGENT
     request = Request(url)
     request.add_header("User-Agent", user_agent)
-    cookie_jar.add_cookie_header(request)
+    if not skip_cookie:
+        cookie_jar.add_cookie_header(request)
     if verify_ssl:
         response = urlopen(request)
     else:
         context = ssl._create_unverified_context()
         response = urlopen(request, context=context)
-    cookie_jar.extract_cookies(response, request)
+    if not skip_cookie:
+        cookie_jar.extract_cookies(response, request)
     html = response.read()
     response.close()
-    try:
-        cookie_jar.save()
-    except Exception:
-        pass
+    if not skip_cookie:
+        try:
+            cookie_jar.save()
+        except Exception:
+            pass
     return html
 
 
@@ -237,6 +242,7 @@ def search(
     extra_params=None,
     user_agent=None,
     verify_ssl=True,
+    skip_cookie=False,
 ) -> Generator[dict[str, str], Any, None]:
     """
     Search the given query string using Google.
@@ -265,6 +271,8 @@ def search(
         Use None for the default.
     :param bool verify_ssl: Verify the SSL certificate to prevent
         traffic interception attacks. Defaults to True.
+    :param bool skip_cookie: Skip cookie load and save, useful
+        for preventing 429 error when using proxies
 
     :rtype: generator of str
     :return: Generator (iterator) that yields found URLs.
@@ -298,7 +306,8 @@ def search(
             )
 
     # Grab the cookie from the home page.
-    get_page(url_home % vars(), user_agent, verify_ssl)
+    if not skip_cookie:
+        get_page(url_home % vars(), user_agent, verify_ssl)
 
     # Prepare the URL of the first request.
     if start:
@@ -330,7 +339,7 @@ def search(
         time.sleep(pause)
 
         # Request the Google Search results page.
-        html = get_page(url, user_agent, verify_ssl)
+        html = get_page(url, user_agent, verify_ssl, skip_cookie)
 
         # Get the BeautifulSoup object
         if is_bs4:
